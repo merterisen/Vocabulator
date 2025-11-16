@@ -12,9 +12,20 @@ from typing import List, Dict, Optional, Any
 from spacy.language import Language
 import threading
 
+try:
+    import en_core_web_sm
+    import de_core_news_sm
+except ImportError:
+    messagebox.showerror(
+        "Model Paketleri Eksik",
+        "Gerekli spaCy model paketleri (en_core_web_sm, de_core_news_sm) bulunamadı.\n\n"
+        "Lütfen bunları pip ile kurduğunuzdan emin olun."
+    )
+    exit()
+
 SUPPORTED_LANGUAGES = {
-    "English": {"spacy": "en_core_web_sm", "spellchecker": "en"},
-    "German (Deutsch)": {"spacy": "de_core_news_sm", "spellchecker": "de"},
+    "English": {"spacy_loader": en_core_web_sm.load, "spellchecker": "en", "model_key": "en_core_web_sm"},
+    "German (Deutsch)": {"spacy_loader": de_core_news_sm.load, "spellchecker": "de", "model_key": "de_core_news_sm"},
 }
 
 STOPWORDS_INFO_TEXT = (
@@ -36,22 +47,22 @@ LAST_DF_RESULTS = None
 
 
 
-def load_spacy_model(model_name: str) -> Optional[Language]:
-    """Loads and caches a spaCy language model."""
+def load_spacy_model(loader_func: callable, model_key: str) -> Optional[Language]:
+    """Loads and caches a spaCy language model using its imported .load() method."""
 
-    if model_name in SPACY_MODEL_CACHE:
-        return SPACY_MODEL_CACHE[model_name]
+    if model_key in SPACY_MODEL_CACHE:
+        return SPACY_MODEL_CACHE[model_key]
     
     try: # Try to load the model
-        nlp = spacy.load(model_name)
-        SPACY_MODEL_CACHE[model_name] = nlp
+        nlp = loader_func()
+        SPACY_MODEL_CACHE[model_key] = nlp
         return nlp
-    except OSError: # Show an error if the model isn't downloaded
+    except Exception as e:
         messagebox.showerror(
-            "Model Not Found",
-            f"SpaCy model '{model_name}' not found. \n\n"
-            f"Please download it by running: \n"
-            f"python -m spacy download {model_name}"
+            "Model Yükleme Hatası",
+            f"Import edilen spaCy modeli '{model_key}' yüklenemedi. \n\n"
+            f"Lütfen modelin pip ile doğru kurulduğundan emin olun.\n"
+            f"Hata detayı: {e}"
         )
         return None
 
@@ -140,7 +151,6 @@ def generate_word_frequency(
     Main orchestration function to process PDF bytes into a word frequency DataFrame.
     """
     def update_status(message):
-        # We need to update the GUI from the main thread
         root.after(0, lambda: status_label.config(text=message))
 
     update_status("Reading PDF file...")
@@ -149,10 +159,18 @@ def generate_word_frequency(
         return None
 
     update_status("Loading language model...")
-    spacy_model_name = language_details["spacy"]
-    nlp = load_spacy_model(spacy_model_name)
+
+    if "spacy_loader" not in language_details or "model_key" not in language_details:
+         messagebox.showerror("Config Error", "Dil konfigürasyonu geçersiz.")
+         update_status("Hata: Geçersiz dil konfigürasyonu.")
+         return None
+         
+    spacy_loader = language_details["spacy_loader"]
+    model_key = language_details["model_key"]
+    nlp = load_spacy_model(spacy_loader, model_key)
+
     if not nlp:
-        return None # Error already shown by load_spacy_model
+        return None
 
     update_status("Processing text with spaCy...")
     lemmas = lemmatize_text(raw_text, nlp, remove_stopwords)
