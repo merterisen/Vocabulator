@@ -1,1 +1,4 @@
 .vocabulator
+build
+dist
+app.spec
