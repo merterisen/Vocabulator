@@ -198,12 +198,13 @@ def generate_word_frequency(
     update_status("Analysis complete!")
     return df
 
-
-# --- Button Functions  --- #
+# --- GUI Application ---
 
 root = tk.Tk()
 root.title("Vocabulator")
 root.geometry("800x600")
+
+# --- GUI Helper Functions ---
 
 def run_analysis_thread(
     pdf_bytes, lang_details, remove_sw, enable_sp, 
@@ -214,7 +215,6 @@ def run_analysis_thread(
     This function runs the heavy processing in a separate thread
     to avoid freezing the GUI.
     """
-
     global LAST_DF_RESULTS
     try:
         # Disable button during analysis
@@ -228,7 +228,9 @@ def run_analysis_thread(
             status_label
         )
         
-        LAST_DF_RESULTS = df_results
+        LAST_DF_RESULTS = df_results # Store for download
+        
+        # --- Update GUI back on the main thread ---
         
         def update_gui_with_results():
             # Clear previous results
@@ -264,11 +266,10 @@ def run_analysis_thread(
         # Re-enable button
         root.after(0, lambda: analyze_btn.config(state="normal"))
 
-def analyze_pdf():
+
+def start_analysis_clicked():
     """Handles the 'Analyze PDF' button click."""
-
     global LAST_DF_RESULTS
-
     LAST_DF_RESULTS = None # Clear old results
     
     pdf_path = selected_pdf_path_var.get()
@@ -304,6 +305,7 @@ def analyze_pdf():
         daemon=True # So it closes when the app closes
     )
     analysis_thread.start()
+
 
 def select_pdf_file():
     """Opens a file dialog to select a PDF."""
@@ -358,20 +360,16 @@ def download_as_csv():
         except Exception as e:
             messagebox.showerror("Save Error", f"Could not save CSV file: {e}")
 
-
-
-# --- GUI layout ---
+# --- Set up the main GUI layout ---
 
 # Use a main frame with padding
 main_frame = ttk.Frame(root, padding="10")
 main_frame.pack(fill="both", expand=True)
 
-
-
 # --- 1. Options Frame ---
 options_frame = ttk.LabelFrame(main_frame, text="1. Configuration", padding="10")
 options_frame.pack(fill="x", expand=False, pady=5)
-options_frame.columnconfigure(1, weight=1)
+options_frame.columnconfigure(1, weight=1) # Make column 1 (file path) expand
 
 # File Selection
 ttk.Button(options_frame, text="Select PDF", command=select_pdf_file).grid(row=0, column=0, padx=5, pady=5, sticky="w")
@@ -422,19 +420,16 @@ ttk.Button(
 ).pack(side="left")
 
 
-
 # --- 2. Analysis Button & Status ---
 analysis_frame = ttk.Frame(main_frame)
 analysis_frame.pack(fill="x", expand=False, pady=5)
-analysis_frame.columnconfigure(0, weight=1)
+analysis_frame.columnconfigure(0, weight=1) # Make button expand
 
-analyze_button = ttk.Button(analysis_frame, text="Analyze PDF", command=analyze_pdf, style="Accent.TButton")
+analyze_button = ttk.Button(analysis_frame, text="Analyze PDF", command=start_analysis_clicked, style="Accent.TButton")
 analyze_button.grid(row=0, column=0, padx=5, pady=5, sticky="we")
 
 status_label = ttk.Label(analysis_frame, text="Ready. Select a PDF and click Analyze.", anchor="e")
 status_label.grid(row=0, column=1, padx=5, pady=5, sticky="e")
-
-
 
 # --- 3. Results Frame ---
 results_frame = ttk.LabelFrame(main_frame, text="2. Results (Top 200)", padding="10")
@@ -456,8 +451,6 @@ results_tree.configure(yscrollcommand=scrollbar.set)
 
 scrollbar.pack(side="right", fill="y")
 results_tree.pack(side="left", fill="both", expand=True)
-
-
 
 # --- 4. Download Frame ---
 download_frame = ttk.Frame(main_frame)
@@ -482,8 +475,9 @@ download_csv_btn = ttk.Button(
 download_csv_btn.grid(row=0, column=1, padx=5, pady=5, sticky="we")
 
 
-
+# --- Main Entry Point ---
 if __name__ == "__main__":
+    # Add a simple style for the primary button
     style = ttk.Style()
     style.configure("Accent.TButton", font=("Arial", 10, "bold"))
     
