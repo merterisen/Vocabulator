@@ -10,7 +10,7 @@ class Vocabulator:
     def __init__(self, root):
         self.root = root
         self.root.title("Vocabulator")
-        self.root.geometry("600x550")
+        self.root.geometry("600x600")
 
         # Configuration variables
         self.filepath = tk.StringVar()
@@ -42,17 +42,22 @@ class Vocabulator:
         languages = list(self.models.keys())
         dropdown = ttk.Combobox(frame_lang, textvariable=self.language, values=languages, state="readonly")
         dropdown.current(0)
-        dropdown.pack(side="left", padx=5)
+        dropdown.pack(side="left", padx=5, fill="x", expand=True)
 
-        tk.Button(frame_lang, text="Run Vocabulator", command=self.start_extraction_thread).pack(side="left", padx=20)
+        # 3. Main Action Button
+        frame_action = tk.Frame(self.root, pady=5)
+        frame_action.pack(fill="x", padx=10)
+        
+        btn_run = tk.Button(frame_action, text="RUN VOCABULATOR", command=self.start_extraction_thread, height=2)
+        btn_run.pack()
 
-        # 3. Status & Progress
+        # 4. Status & Progress
         self.progress_bar = ttk.Progressbar(self.root, mode='indeterminate')
         self.progress_bar.pack(fill="x", padx=10, pady=(10, 0))
         
         tk.Label(self.root, textvariable=self.status, fg="blue").pack(pady=5)
 
-        # 4. Preview Area
+        # 5. Preview Area
         frame_preview = tk.LabelFrame(self.root, text="Preview (Top 50 words)", padx=10, pady=10)
         frame_preview.pack(fill="both", expand=True, padx=10, pady=5)
 
@@ -71,7 +76,7 @@ class Vocabulator:
         scrollbar.pack(side="right", fill="y")
         self.tree.configure(yscrollcommand=scrollbar.set)
 
-        # 5. Export Buttons
+        # 6. Export Buttons
         frame_export = tk.Frame(self.root, pady=10)
         frame_export.pack(fill="x")
         tk.Button(frame_export, text="Export to CSV", command=lambda: self.export_data("csv")).pack(side="left", padx=20, expand=True)
@@ -106,7 +111,7 @@ class Vocabulator:
             model_name = self.models[selected_lang]
 
             # 1. Load Spacy Model
-            # Disabling NER and Parser to speed up processing significantly
+            # Disabling NER and Parser to speed up processing
             try:
                 nlp = spacy.load(model_name, disable=["ner", "parser"])
             except OSError:
@@ -119,7 +124,7 @@ class Vocabulator:
             self.status.set("Reading PDF...")
             try:
                 doc = fitz.open(self.filepath.get())
-                # Generator expression to yield pages one by one to save memory compared to loading one giant string
+                # Generator expression to yield pages one by one to save memory
                 pages_text = [page.get_text() for page in doc]
             except Exception as e:
                 self.show_error_safe("PDF Error", f"Could not read PDF: {str(e)}")
@@ -134,7 +139,7 @@ class Vocabulator:
             # POS tagging for filtering
             valid_pos = {"NOUN", "VERB", "ADJ", "ADV"} 
 
-            # nlp.pipe processes text in batches, for faster and more memory efficient
+            # nlp.pipe processes text in batches
             for doc in nlp.pipe(pages_text, batch_size=20):
                 for token in doc:
                     if (token.is_alpha and 
@@ -149,7 +154,7 @@ class Vocabulator:
                         else:
                             word_freq[lemma] = 1
 
-            # Create DataFrame and Convert dictionary items to list of tuples
+            # Create DataFrame
             data = list(word_freq.items())
             self.df_result = pd.DataFrame(data, columns=['word', 'count'])
             
@@ -174,7 +179,6 @@ class Vocabulator:
         # Insert top 50
         if self.df_result is not None and not self.df_result.empty:
             for _, row in self.df_result.head(50).iterrows():
-                # UPDATED: Only inserting word and count
                 self.tree.insert("", "end", values=(row['word'], row['count']))
         else:
             self.status.set("No valid vocabulary found.")
