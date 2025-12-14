@@ -10,10 +10,11 @@ class Vocabulator:
     def __init__(self, root):
         self.root = root
         self.root.title("Vocabulator")
-        self.root.geometry("600x600")
+        self.root.geometry("600x650")
 
         # Configuration variables
         self.filepath = tk.StringVar()
+        self.known_words_filepath = tk.StringVar() 
         self.language = tk.StringVar(value="German")
         self.status = tk.StringVar(value="Ready")
         self.df_result = None
@@ -35,29 +36,41 @@ class Vocabulator:
         tk.Entry(frame_file, textvariable=self.filepath, width=50).pack(side="left", padx=5)
         tk.Button(frame_file, text="Browse", command=self.browse_file).pack(side="left")
 
-        # 2. Language Selection Frame
-        frame_lang = tk.LabelFrame(self.root, text="2. Select Language", padx=10, pady=10)
-        frame_lang.pack(fill="x", padx=10, pady=5)
+        # Container for Language and Known Words (Side by Side)
+        frame_options = tk.Frame(self.root)
+        frame_options.pack(fill="x", padx=10, pady=5)
+
+        # 2. Language Selection Frame (Left Side)
+        frame_lang = tk.LabelFrame(frame_options, text="2. Select Language", padx=10, pady=10)
+        frame_lang.pack(side="left", fill="both", expand=True, padx=(0, 5))
 
         languages = list(self.models.keys())
         dropdown = ttk.Combobox(frame_lang, textvariable=self.language, values=languages, state="readonly")
         dropdown.current(0)
-        dropdown.pack(side="left", padx=5, fill="x", expand=True)
+        dropdown.pack(fill="x", padx=5, pady=5)
 
-        # 3. Main Action Button
+        # 3. Known Words Filter Frame (Right Side)
+        frame_known = tk.LabelFrame(frame_options, text="3. Known Words (Optional)", padx=10, pady=10)
+        frame_known.pack(side="right", fill="both", expand=True, padx=(5, 0))
+
+        tk.Entry(frame_known, textvariable=self.known_words_filepath, width=15).pack(side="left", padx=5, fill="x", expand=True)
+        tk.Button(frame_known, text="Upload", command=self.browse_known_file).pack(side="left")
+
+        # 4. Main Action Button
         frame_action = tk.Frame(self.root, pady=5)
         frame_action.pack(fill="x", padx=10)
         
-        btn_run = tk.Button(frame_action, text="RUN VOCABULATOR", command=self.start_extraction_thread, height=2)
-        btn_run.pack()
+        # Centered button with fixed width
+        btn_run = tk.Button(frame_action, text="RUN VOCABULATOR", command=self.start_extraction_thread, height=2, width=30)
+        btn_run.pack() 
 
-        # 4. Status & Progress
+        # 5. Status & Progress
         self.progress_bar = ttk.Progressbar(self.root, mode='indeterminate')
         self.progress_bar.pack(fill="x", padx=10, pady=(10, 0))
         
         tk.Label(self.root, textvariable=self.status, fg="blue").pack(pady=5)
 
-        # 5. Preview Area
+        # 6. Preview Area
         frame_preview = tk.LabelFrame(self.root, text="Preview (Top 50 words)", padx=10, pady=10)
         frame_preview.pack(fill="both", expand=True, padx=10, pady=5)
 
@@ -76,7 +89,7 @@ class Vocabulator:
         scrollbar.pack(side="right", fill="y")
         self.tree.configure(yscrollcommand=scrollbar.set)
 
-        # 6. Export Buttons
+        # 7. Export Buttons
         frame_export = tk.Frame(self.root, pady=10)
         frame_export.pack(fill="x")
         tk.Button(frame_export, text="Export to CSV", command=lambda: self.export_data("csv")).pack(side="left", padx=20, expand=True)
@@ -86,6 +99,11 @@ class Vocabulator:
         filename = filedialog.askopenfilename(filetypes=[("PDF Files", "*.pdf")])
         if filename:
             self.filepath.set(filename)
+
+    def browse_known_file(self):
+        filename = filedialog.askopenfilename(filetypes=[("Excel or CSV", "*.csv *.xlsx *.xls")])
+        if filename:
+            self.known_words_filepath.set(filename)
 
     def show_error_safe(self, title, message):
         """Thread-safe way to show error messages."""
@@ -110,8 +128,42 @@ class Vocabulator:
             selected_lang = self.language.get()
             model_name = self.models[selected_lang]
 
-            # 1. Load Spacy Model
-            # Disabling NER and Parser to speed up processing
+            # --- STEP 0: Load Known Words (if any) ---
+            known_words = set()
+            k_path = self.known_words_filepath.get()
+            if k_path:
+                self.status.set("Loading known words filter...")
+                try:
+                    if k_path.endswith(('.xls', '.xlsx')):
+                        df_k = pd.read_excel(k_path)
+                    else:
+                        # Assume CSV
+                        df_k = pd.read_csv(k_path)
+                    
+                    # Heuristic: Find the column that contains words
+                    # If there's a column named "Word" (case insensitive), use it.
+                    # Otherwise, use the first column.
+                    target_col = None
+                    for col in df_k.columns:
+                        if "word" in str(col).lower():
+                            target_col = col
+                            break
+                    
+                    if target_col is None:
+                        target_col = df_k.columns[0] # Default to first column
+                    
+                    # Convert to set for O(1) lookup
+                    # We convert everything to lowercase strings
+                    known_words = set(df_k[target_col].astype(str).str.lower().str.strip())
+                    
+                    print(f"Loaded {len(known_words)} known words.")
+
+                except Exception as e:
+                    self.show_error_safe("Known Words Error", f"Could not read filter file: {str(e)}")
+                    self.root.after(0, self.reset_ui)
+                    return
+
+            # --- STEP 1: Load Spacy Model ---
             try:
                 nlp = spacy.load(model_name, disable=["ner", "parser"])
             except OSError:
@@ -120,26 +172,22 @@ class Vocabulator:
                 self.root.after(0, self.reset_ui)
                 return
 
-            # 2. Extract Text from PDF
+            # --- STEP 2: Extract Text from PDF ---
             self.status.set("Reading PDF...")
             try:
                 doc = fitz.open(self.filepath.get())
-                # Generator expression to yield pages one by one to save memory
                 pages_text = [page.get_text() for page in doc]
             except Exception as e:
                 self.show_error_safe("PDF Error", f"Could not read PDF: {str(e)}")
                 self.root.after(0, self.reset_ui)
                 return
             
-            # 3. NLP Processing
+            # --- STEP 3: NLP Processing ---
             self.status.set(f"Analyzing {len(pages_text)} pages... this may take time.")
             
             word_freq = {}
-
-            # POS tagging for filtering
             valid_pos = {"NOUN", "VERB", "ADJ", "ADV"} 
 
-            # nlp.pipe processes text in batches
             for doc in nlp.pipe(pages_text, batch_size=20):
                 for token in doc:
                     if (token.is_alpha and 
@@ -149,6 +197,10 @@ class Vocabulator:
                         
                         lemma = token.lemma_.lower()
                         
+                        # FILTER: Skip if word is in known_words
+                        if lemma in known_words:
+                            continue
+
                         if lemma in word_freq:
                             word_freq[lemma] += 1
                         else:
@@ -161,7 +213,6 @@ class Vocabulator:
             if not self.df_result.empty:
                 self.df_result = self.df_result.sort_values(by='count', ascending=False)
             
-            # Update UI from main thread
             self.root.after(0, self.update_preview)
 
         except Exception as e:
@@ -200,7 +251,6 @@ class Vocabulator:
                     messagebox.showinfo("Success", "Saved to CSV")
             
             elif filetype == "excel":
-                # Check for openpyxl dependency
                 try:
                     import openpyxl
                 except ImportError:
