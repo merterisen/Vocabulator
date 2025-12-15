@@ -3,9 +3,8 @@ from tkinter import ttk, messagebox, filedialog
 import threading
 import config
 from ui.components import FileSelector, ResultTable
-from core.pdf_processor import PdfProcessor
+from core.pdf_processor import extract_text
 from core.nlp_engine import NLPEngine
-from core.exporter import Exporter
 
 class Vocabulator:
     def __init__(self, root):
@@ -15,7 +14,7 @@ class Vocabulator:
         
         # State
         self.current_df = None
-        self.status_var = tk.StringVar(value="Ready")
+        self.status_text = tk.StringVar(value="Ready")
         self.language_var = tk.StringVar(value="German")
         
         self._build_ui() # Run _build_ui auto
@@ -47,7 +46,7 @@ class Vocabulator:
         # Progress Bar
         self.progress_bar = ttk.Progressbar(self.root, mode='indeterminate')
         self.progress_bar.pack(fill="x", padx=10)
-        tk.Label(self.root, textvariable=self.status_var, fg="blue").pack(pady=5)
+        tk.Label(self.root, textvariable=self.status_text, fg="blue").pack(pady=5)
 
         # Results Area
         self.result_table = ResultTable(self.root, "Preview (Top 50)")
@@ -80,22 +79,21 @@ class Vocabulator:
         """
         try:
             # Setup NLPEngine
-            self.status_var.set("Loading AI Model...")
+            self.status_text.set("Loading AI Model...")
             nlpengine = NLPEngine(self.language_var.get())
             nlpengine.load_model()
 
             # Load Known Words
-            self.status_var.set("Loading known words...")
+            self.status_text.set("Loading known words...")
             known_path = self.known_words.get_path()
             known_set = nlpengine.load_known_words(known_path)
 
             # Read PDF
-            self.status_var.set("Reading PDF...")
-            processor = PdfProcessor()
-            pages = processor.extract_text(pdf_path)
+            self.status_text.set("Reading PDF...")
+            pages = extract_text(pdf_path)
 
             # Analyze
-            self.status_var.set(f"Analyzing {len(pages)} pages...")
+            self.status_text.set(f"Extracting words from {len(pages)} pages...")
             self.current_df = nlpengine.process_text_pages(pages, known_set)
 
             # Update UI (Must be done on main thread)
@@ -107,13 +105,13 @@ class Vocabulator:
     def _on_success(self):
         self.progress_bar.stop()
         self.run_button.config(state="normal")
-        self.status_var.set("Analysis Complete!")
+        self.status_text.set("Analysis Complete!")
         self.result_table.update_data(self.current_df)
 
     def _on_error(self, error_msg):
         self.progress_bar.stop()
         self.run_button.config(state="normal")
-        self.status_var.set("Error Occurred")
+        self.status_text.set("Error Occurred")
         messagebox.showerror("Processing Error", error_msg)
 
     def export(self, format_type):
@@ -123,10 +121,12 @@ class Vocabulator:
         try:
             if format_type == "csv":
                 f = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV", "*.csv")])
-                if f: Exporter.to_csv(self.current_df, f)
+                if f: 
+                    self.current_df.to_csv(f, index=False)
             else:
                 f = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel", "*.xlsx")])
-                if f: Exporter.to_excel(self.current_df, f)
+                if f: 
+                    self.current_df.to_excel(f, index=False)
                 
             if f: messagebox.showinfo("Success", f"Saved to {format_type.upper()}")
             

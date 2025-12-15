@@ -2,22 +2,27 @@ import spacy
 import pandas as pd
 import config 
 
+# Keep this as a class because it needs to remember things.
+
 class NLPEngine:
     """
     Responsible for natural language processing and data aggregation.
     """
+
     def __init__(self, language_name):
         self.model_name = config.SPACY_MODELS.get(language_name)
         if not self.model_name:
             raise ValueError(f"No model found for language: {language_name}")
-            
+
+
     def load_model(self):
-        """Loads the spacy model. Can be slow."""
+        """Loads the spacy models like de_core_news_sm."""
         # KEEP THIS TRY/EXCEPT
         try:
             self.nlp = spacy.load(self.model_name, disable=["ner", "parser"])
         except OSError:
             raise OSError(f"Model '{self.model_name}' not found. Please run: python -m spacy download {self.model_name}")
+
 
     def load_known_words(self, filepath):
         """
@@ -31,19 +36,16 @@ class NLPEngine:
         else:
             df = pd.read_csv(filepath)
         
-        # Smart column detection
+        # Smart column detection: reads first column only.
         target_col = df.columns[0]
-        for col in df.columns:
-            if "word" in str(col).lower():
-                target_col = col
-                break
-        
+
         return set(df[target_col].astype(str).str.lower().str.strip())
 
     def process_text_pages(self, pages_text, known_words_set=None):
         """
         Main logic loop. 
         """
+        
         if known_words_set is None:
             known_words_set = set()
 
