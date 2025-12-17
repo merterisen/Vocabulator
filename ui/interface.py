@@ -34,7 +34,7 @@ class Vocabulator:
         self.select_pdf_entry = tk.Entry(select_pdf_frame, textvariable=self.pdf_file_path, state='readonly')
         self.select_pdf_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
 
-        select_pdf_button = tk.Button(select_pdf_frame, text="Browse", command=self._browse_pdf_action)
+        select_pdf_button = tk.Button(select_pdf_frame, text="Browse", command=self._browse_pdf)
         select_pdf_button.pack(side="left")
 
 
@@ -58,7 +58,7 @@ class Vocabulator:
         self.known_words_entry = tk.Entry(known_words_frame, textvariable=self.known_words_file_path, state='readonly')
         self.known_words_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
 
-        known_words_button = tk.Button(known_words_frame, text="Browse", command=self._browse_known_action)
+        known_words_button = tk.Button(known_words_frame, text="Browse", command=self._browse_known_words)
         known_words_button.pack(side="left")
 
 
@@ -107,20 +107,19 @@ class Vocabulator:
     # HELPER FUNCTIONS
     # =================================================================
 
-    def _browse_pdf_action(self):
-        """Opens file dialog for PDF"""
+    def _browse_pdf(self):
         filename = filedialog.askopenfilename(filetypes=[("PDF Files", "*.pdf")])
         if filename:
             self.pdf_file_path.set(filename)
 
-    def _browse_known_action(self):
-        """Opens file dialog for Excel/CSV"""
+    def _browse_known_words(self):
         filename = filedialog.askopenfilename(filetypes=[("Excel/CSV", "*.csv *.xlsx")])
         if filename:
             self.known_words_file_path.set(filename)
 
-    def _update_table_data(self, dataframe):
+    def _update_table(self, dataframe):
         """Clears the table and adds new rows"""
+
         # 1. Clear existing items
         for item in self.results_table.get_children():
             self.results_table.delete(item)
@@ -187,8 +186,7 @@ class Vocabulator:
         self.progress_bar.stop()
         self.run_button.config(state="normal")
         self.status.set("Analysis Complete!")
-        # Call our helper to update table
-        self._update_table_data(self.current_df)
+        self._update_table(self.current_df)
 
     def _on_error(self, error_msg):
         self.progress_bar.stop()
