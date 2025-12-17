@@ -15,6 +15,7 @@ class Vocabulator:
         self.current_df = None
         self.status = tk.StringVar(value="Ready")
         self.language = tk.StringVar(value="German")
+        self.include_articles = tk.BooleanVar(value=False)
         
         # Variables to store file paths
         self.pdf_file_path = tk.StringVar()
@@ -47,8 +48,11 @@ class Vocabulator:
         select_language_frame = tk.LabelFrame(container_frame, text="2. Select Language", padx=10, pady=10)
         select_language_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
         
-        select_language_combobox = ttk.Combobox(select_language_frame, textvariable=self.language, values=list(config.SPACY_MODELS.keys()), state="readonly")
+        select_language_combobox = ttk.Combobox(select_language_frame, textvariable=self.language, values=list(config.LANGUAGES.keys()), state="readonly")
         select_language_combobox.pack(fill="x")
+
+        include_articles_checkbutton = tk.Checkbutton(select_language_frame, text="Include Articles", variable=self.include_articles, onvalue=True, offvalue=False)
+        include_articles_checkbutton.pack(anchor="w")
 
 
         # SECTION 3: KNOWN WORDS FILE (Right Side)
@@ -173,7 +177,7 @@ class Vocabulator:
 
             # Analyze
             self.status.set(f"Extracting words from {len(pages)} pages...")
-            self.current_df = nlpengine.process_text_pages(pages, known_set)
+            self.current_df = nlpengine.process_text_pages(pages, known_set, include_articles=self.include_articles.get())
 
             # Update UI (Must be done on main thread)
             self.root.after(0, self._on_success)
