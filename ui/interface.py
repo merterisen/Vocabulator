@@ -119,8 +119,7 @@ class Vocabulator:
 
     def _update_table(self, dataframe):
         """Clears the table and adds new rows"""
-
-        # 1. Clear existing items
+        # 1. Clear existing tables
         for item in self.results_table.get_children():
             self.results_table.delete(item)
             
