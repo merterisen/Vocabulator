@@ -1,5 +1,5 @@
 import tkinter as tk
-from ui.main_window import Vocabulator
+from ui.interface import Vocabulator
 
 if __name__ == "__main__":
     try:
