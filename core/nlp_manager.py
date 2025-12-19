@@ -2,9 +2,7 @@ import spacy
 import pandas as pd
 import config 
 
-# Keep this as a class because it needs to remember things.
-
-class NLPEngine:
+class NLPManager:
     """
     Responsible for natural language processing and data aggregation.
     """
@@ -17,15 +15,14 @@ class NLPEngine:
             raise ValueError(f"No configuration found for language: {language_name}")
             
         self.model_name = lang_config["model"]
+        self.nlp = None
 
     def load_model(self):
-        """Loads the spacy models like de_core_news_sm."""
-        # KEEP THIS TRY/EXCEPT
+        """Loads the spacy models."""
         try:
             self.nlp = spacy.load(self.model_name, disable=["ner", "parser"])
         except OSError:
             raise OSError(f"Model '{self.model_name}' not found. Please run: python -m spacy download {self.model_name}")
-
 
     def load_known_words(self, filepath):
         """
@@ -34,22 +31,26 @@ class NLPEngine:
         if not filepath:
             return set()
             
-        if filepath.endswith(('.xls', '.xlsx')):
-            df = pd.read_excel(filepath)
-        else:
-            df = pd.read_csv(filepath)
+        try:
+            if filepath.endswith(('.xls', '.xlsx')):
+                df = pd.read_excel(filepath)
+            else:
+                df = pd.read_csv(filepath)
+            
+            # Smart column detection: reads first column only.
+            target_col = df.columns[0]
+            return set(df[target_col].astype(str).str.lower().str.strip())
         
-        # Smart column detection: reads first column only.
-        target_col = df.columns[0]
-        return set(df[target_col].astype(str).str.lower().str.strip())
+        except Exception as e:
+            raise Exception(f"Failed to read known words file: {str(e)}")
 
     def process_text_pages(self, pages_text, known_words_set=None, include_articles=False):
         """
-        Main logic loop. 
-        Args:
-            include_articles (bool): If True, adds articles to nouns.
+        Extracts words from text, handles nlp tasks and returns dataframe.
         """
-        
+        if self.nlp is None:
+            self.load_model()
+            
         if known_words_set is None:
             known_words_set = set()
 
@@ -71,7 +72,7 @@ class NLPEngine:
                         # 1. Count the word (lemma based)
                         word_freq[lemma] = word_freq.get(lemma, 0) + 1
                         
-                        # 2. Detect Gender if it is a Noun (only if user wants articles)
+                        # 2. Detect Gender if it is a Noun
                         if include_articles and token.pos_ == "NOUN" and lemma not in word_gender:
                             genders = token.morph.get("Gender")
                             if genders:

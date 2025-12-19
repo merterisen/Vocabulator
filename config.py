@@ -1,6 +1,6 @@
 # Central place for constants. s
 
-WINDOW_TITLE = "Vocabulator Pro"
+WINDOW_TITLE = "Vocabulator"
 WINDOW_SIZE = "600x600"
 
 # Language Configuration
