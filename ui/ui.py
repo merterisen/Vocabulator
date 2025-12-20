@@ -152,11 +152,8 @@ class VocabulatorUI:
         scrollbar = ttk.Scrollbar(parent, orient="vertical")
         scrollbar.pack(side="right", fill="y")
 
-        self.preview_table = ttk.Treeview(parent, columns=("Word", "Count"), show="headings", yscrollcommand=scrollbar.set)
-        self.preview_table.heading("Word", text="Word")
-        self.preview_table.heading("Count", text="Frequency")
-        self.preview_table.column("Word", anchor="w")
-        self.preview_table.column("Count", anchor="center", width=100)
+        # Initializing with default columns, but they will be overwritten dynamically when new columns are added.
+        self.preview_table = ttk.Treeview(parent, columns=("Word", "Count", "Type"), show="headings", yscrollcommand=scrollbar.set)
         self.preview_table.pack(side="left", fill="both", expand=True)
         
         scrollbar.config(command=self.preview_table.yview)
@@ -185,7 +182,7 @@ class VocabulatorUI:
 
 
     def update_table(self, dataframe):
-        """Clears and repopulates the treeview"""
+        """Clears and repopulates the treeview dynamically based on DataFrame columns."""
         
         for item in self.preview_table.get_children():
             self.preview_table.delete(item)
@@ -193,8 +190,17 @@ class VocabulatorUI:
         if dataframe is None or dataframe.empty:
             return
 
+        # Dynamic Column Generation
+        cols = list(dataframe.columns)
+        self.preview_table["columns"] = cols
+        
+        for col in cols:
+            self.preview_table.heading(col, text=col, anchor="w")
+            self.preview_table.column(col, anchor="w")
+
+        # Insert head(50) to preview_table
         for _, row in dataframe.head(50).iterrows():
-            self.preview_table.insert("", "end", values=(row['word'], row['count']))
+            self.preview_table.insert("", "end", values=list(row))
 
 
     def show_error(self, title, message):
