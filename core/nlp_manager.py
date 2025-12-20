@@ -17,12 +17,16 @@ class NLPManager:
         self.model_name = lang_config["model"]
         self.nlp = None
 
+
+
     def load_model(self):
         """Loads the spacy models."""
         try:
             self.nlp = spacy.load(self.model_name, disable=["ner", "parser"])
         except OSError:
             raise OSError(f"Model '{self.model_name}' not found. Please run: python -m spacy download {self.model_name}")
+
+
 
     def load_known_words(self, filepath):
         """
@@ -44,22 +48,26 @@ class NLPManager:
         except Exception as e:
             raise Exception(f"Failed to read known words file: {str(e)}")
 
-    def process_text_pages(self, pages_text, known_words_set=None, include_articles=False):
+
+
+    def extract_words(self, texts, known_words=None, include_articles=False):
         """
         Extracts words from text, handles nlp tasks and returns dataframe.
         """
+
         if self.nlp is None:
             self.load_model()
             
-        if known_words_set is None:
-            known_words_set = set()
-
-        word_freq = {}
-        word_gender = {} 
+        if known_words is None:
+            known_words = set()
         
-        article_map = config.LANGUAGES.get(self.language_name, {}).get("articles", {})
+        words_data = {}
 
-        for doc in self.nlp.pipe(pages_text, batch_size=20):
+        language_config = config.LANGUAGES.get(self.language_name, {})
+        article_map = language_config.get("articles") or {} 
+
+        # Adding lemmas to words_data
+        for doc in self.nlp.pipe(texts, batch_size=20):
             for token in doc:
                 if (token.is_alpha and 
                     not token.is_stop and 
@@ -68,33 +76,45 @@ class NLPManager:
                     
                     lemma = token.lemma_.lower()
                     
-                    if lemma not in known_words_set:
-                        # 1. Count the word (lemma based)
-                        word_freq[lemma] = word_freq.get(lemma, 0) + 1
-                        
-                        # 2. Detect Gender if it is a Noun
-                        if include_articles and token.pos_ == "NOUN" and lemma not in word_gender:
+                    # words_data configuration
+                    if lemma not in known_words:
+                        if lemma not in words_data:
+                            words_data[lemma] = {
+                                "count": 0,
+                                "gender": None,
+                                "pos": token.pos_
+                            }
+
+                        words_data[lemma]["count"] += 1
+                    
+                    # Article info
+                    if article_map and token.pos_ == "NOUN" and words_data[lemma]["gender"] is None:
                             genders = token.morph.get("Gender")
                             if genders:
-                                word_gender[lemma] = genders[0]
+                                words_data[lemma]["gender"] = genders[0]
+                    
 
-        # 3. Format Output
-        data = []
-        for lemma, count in word_freq.items():
-            display_word = lemma
-            
-            # Articles Conditions
-            if include_articles and lemma in word_gender:
-                gender = word_gender[lemma]
-                article = article_map.get(gender)
+        # Output Data
+        output_data = []
+        for key, values in words_data.items():
+            # Adding Articles
+            if include_articles and values["gender"]:
+                article = article_map.get(values["gender"])
                 if article:
-                    display_word = f"{article} {lemma}"
+                    key = f"{article} {key}"
             
-            data.append((display_word, count))
+            # Satır verisi oluşturuluyor
+            row = {
+                "word": key,
+                "count": values["count"],
+                "pos": values["pos"]
+            }
 
-        df = pd.DataFrame(data, columns=['word', 'count'])
+            output_data.append(row)
+
+        output_df = pd.DataFrame(output_data)
         
-        if not df.empty:
-            df = df.sort_values(by='count', ascending=False)
+        if not output_df.empty:
+            output_df = output_df.sort_values(by='count', ascending=False)
             
-        return df
+        return output_df

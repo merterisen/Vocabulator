@@ -1,7 +1,7 @@
 import threading
 from tkinter import filedialog
 from core.nlp_manager import NLPManager
-from core.pdf_manager import extract_text
+from core.pdf_manager import extract_texts_from_pdf
 
 class VocabulatorController:
     """Bridge between ui and core Services."""
@@ -90,11 +90,11 @@ class VocabulatorController:
             known_set = nlp_manager.load_known_words(known_words_path)
 
             self._update_status("Reading PDF...")
-            pages = extract_text(pdf_path)
+            texts = extract_texts_from_pdf(pdf_path)
 
-            self._update_status(f"Extracting words from {len(pages)} pages...")
+            self._update_status(f"Extracting words from {len(texts)} pages...")
             
-            nlp_output_df = nlp_manager.process_text_pages(pages, known_set, include_articles=include_articles)
+            nlp_output_df = nlp_manager.extract_words(texts, known_set, include_articles=include_articles)
             
             self._on_nlp_success(nlp_output_df)
 
@@ -111,11 +111,11 @@ class VocabulatorController:
         self.ui.root.after(0, lambda: self.ui.update_status(message))
 
 
-    def _on_nlp_success(self, df):
+    def _on_nlp_success(self, output_df):
         def callback():
-            self.output_df = df # Save state in controller
-            self.ui.update_table(df)
-            self.ui.update_status("Analysis Complete!")
+            self.output_df = output_df
+            self.ui.update_table(output_df)
+            self.ui.update_status("NLP Complete!")
             self.ui.unlock_ui()
         
         self.ui.root.after(0, callback)
@@ -128,3 +128,26 @@ class VocabulatorController:
             self.ui.show_error("Processing Error", error_msg)
             
         self.ui.root.after(0, callback)
+    
+
+
+    def _on_llm_success(self, output_df):
+        def callback():
+            self.output_df = output_df
+            self.ui.update_table(output_df)
+            self.ui.update_status("LLM Complete!")
+            self.ui.unlock_ui()
+        
+        self.ui.root.after(0, callback)
+
+    
+    def _on_llm_error(self, error_msg):
+        def callback():
+            self.ui.update_status("Error Occurred")
+            self.ui.unlock_ui()
+            self.ui.show_error("Processing Error", error_msg)
+            
+        self.ui.root.after(0, callback)
+
+    
+    

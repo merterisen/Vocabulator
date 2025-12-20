@@ -39,10 +39,10 @@ class VocabulatorUI:
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(side="top", fill="both", expand=True, padx=10, pady=5)
 
-        # Homepage Tab
-        self.homepage_tab = ttk.Frame(self.notebook)
-        self.notebook.add(self.homepage_tab, text='Homepage')
-        self._build_homepage_tab(self.homepage_tab)
+        # NLP Tab
+        self.nlp_tab = ttk.Frame(self.notebook)
+        self.notebook.add(self.nlp_tab, text='NLP')
+        self._build_nlp_tab(self.nlp_tab)
 
         # LLM Tab
         self.llm_tab = ttk.Frame(self.notebook)
@@ -60,7 +60,7 @@ class VocabulatorUI:
 
 
 
-    def _build_homepage_tab(self, parent):
+    def _build_nlp_tab(self, parent):
         # SECTION 1: SELECT PDF
         select_pdf_frame = tk.LabelFrame(parent, text="1. Select PDF", padx=10, pady=10)
         select_pdf_frame.pack(side='top', fill="x", padx=10, pady=5)
@@ -110,8 +110,19 @@ class VocabulatorUI:
 
 
     def _build_llm_tab(self, parent):
-        label = tk.Label(parent, text="LLM Features Coming Soon...")
-        label.pack(pady=20)
+        # SECTION 1: SELECT LLM MODEL
+        select_llm_frame = tk.LabelFrame(parent, text="1. Select LLM Model", padx=10, pady=10)
+        select_llm_frame.pack(side='top', fill="x", padx=10, pady=5)
+
+        self.select_llm_combobox = ttk.Combobox(select_llm_frame, values=list(config.LLM_MODELS.keys()), state="readonly")
+        self.select_llm_combobox.pack(fill="x")
+
+        # SECTION 2: ENTER API KEY
+        api_key_frame = tk.LabelFrame(parent, text="2. Enter API Key", padx=10, pady=10)
+        api_key_frame.pack(side='top', fill="x", padx=10, pady=5)
+
+        self.api_key_entry = tk.Entry(api_key_frame, state='normal')
+        self.api_key_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
 
 
 
