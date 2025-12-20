@@ -1,7 +1,7 @@
 # Central place for constants. s
 
 WINDOW_TITLE = "Vocabulator"
-WINDOW_SIZE = "600x600"
+WINDOW_SIZE = "650x700"
 
 # Language Configuration
 LANGUAGES = {

@@ -9,6 +9,7 @@ class VocabulatorUI:
         - Getting user input
         - Calling the Controller, when buttons are clicked
     """
+
     def __init__(self, root):
         self.root = root
         self.controller = None # Will be set by app.py
@@ -22,23 +23,47 @@ class VocabulatorUI:
         self.include_articles = tk.BooleanVar(value=False)
         self.pdf_file_path = tk.StringVar()
         self.known_words_file_path = tk.StringVar()
+
+        # LLM Variables
+        self.api_key = tk.StringVar()
         
-        self._build_ui() # Run _build_ui() at start
+        # Build the UI
+        self._build_ui()
 
 
-    def set_controller(self, controller):
-        """Connection to the VocabulatorController"""
-        self.controller = controller
 
 
     def _build_ui(self):
-        """
-        Creates all the visual elements (widgets) on the screen.
-        """
 
+        # Tabs
+        self.notebook = ttk.Notebook(self.root)
+        self.notebook.pack(side="top", fill="both", expand=True, padx=10, pady=5)
+
+        # Homepage Tab
+        self.homepage_tab = ttk.Frame(self.notebook)
+        self.notebook.add(self.homepage_tab, text='Homepage')
+        self._build_homepage_tab(self.homepage_tab)
+
+        # LLM Tab
+        self.llm_tab = ttk.Frame(self.notebook)
+        self.notebook.add(self.llm_tab, text='LLM')
+        self._build_llm_tab(self.llm_tab)
+
+        self._build_status_bar() # should be written before _build_preview()
+
+        # Preview
+        self.preview_frame = tk.LabelFrame(self.root, text="Preview (Top 50)", padx=10, pady=10)
+        self.preview_frame.pack(side="bottom", fill="both", expand=True, padx=10, pady=10)
+        self._build_preview(self.preview_frame)
+
+        
+
+
+
+    def _build_homepage_tab(self, parent):
         # SECTION 1: SELECT PDF
-        select_pdf_frame = tk.LabelFrame(self.root, text="1. Select PDF", padx=10, pady=10)
-        select_pdf_frame.pack(fill="x", padx=10, pady=5)
+        select_pdf_frame = tk.LabelFrame(parent, text="1. Select PDF", padx=10, pady=10)
+        select_pdf_frame.pack(side='top', fill="x", padx=10, pady=5)
 
         self.select_pdf_entry = tk.Entry(select_pdf_frame, textvariable=self.pdf_file_path, state='readonly')
         self.select_pdf_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
@@ -48,10 +73,10 @@ class VocabulatorUI:
 
 
         # CONTAINER for Language and Known Words
-        container_frame = tk.Frame(self.root)
-        container_frame.pack(fill="x", padx=10, pady=5)
-
+        container_frame = tk.Frame(parent)
+        container_frame.pack(side='top', fill="x", padx=10, pady=5)
         
+
         # SECTION 2: LANGUAGE SELECTION
         select_language_frame = tk.LabelFrame(container_frame, text="2. Select Language", padx=10, pady=10)
         select_language_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
@@ -70,55 +95,71 @@ class VocabulatorUI:
         self.known_words_entry = tk.Entry(known_words_frame, textvariable=self.known_words_file_path, state='readonly')
         self.known_words_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
 
-        # Command routes to Controller
         known_words_button = tk.Button(known_words_frame, text="Browse", command=lambda: self.controller.browse_known_words())
         known_words_button.pack(side="left")
 
 
-        # SECTION 4: RUN BUTTON AND STATUS
-        self.run_button = tk.Button(self.root, text="RUN ANALYSIS", command=lambda: self.controller.run_analysis(), height=2, bg="#e1e1e1") 
-        self.run_button.pack(fill="x", padx=20, pady=10)
+        # SECTION 4: RUN BUTTON
+        self.run_button = tk.Button(parent, text="RUN", command=lambda: self.controller.run_nlp(), height=2, bg="#e1e1e1") 
+        self.run_button.pack(side='top', fill="x", padx=20, pady=(10, 5))
 
-        self.progress_bar = ttk.Progressbar(self.root, mode='indeterminate')
-        self.progress_bar.pack(fill="x", padx=10)
-        
-        status_label = tk.Label(self.root, textvariable=self.status, fg="blue")
-        status_label.pack(pady=5)
+        self.progress_bar = ttk.Progressbar(parent, mode='indeterminate')
+        self.progress_bar.pack(fill="x", padx=20, pady=(0, 10))
 
 
-        # SECTION 5: RESULTS TABLE
-        results_frame = tk.LabelFrame(self.root, text="Preview (Top 50)", padx=10, pady=10)
-        results_frame.pack(fill="both", expand=True, padx=10, pady=5)
-
-        results_scrollbar = ttk.Scrollbar(results_frame, orient="vertical")
-        results_scrollbar.pack(side="right", fill="y")
-
-        self.results_table = ttk.Treeview(results_frame, columns=("Word", "Count"), show="headings", 
-                                        yscrollcommand=results_scrollbar.set)
-        self.results_table.heading("Word", text="Word")
-        self.results_table.heading("Count", text="Frequency")
-        self.results_table.column("Word", anchor="w")
-        self.results_table.column("Count", anchor="center", width=100)
-        self.results_table.pack(side="left", fill="both", expand=True)
-        
-        results_scrollbar.config(command=self.results_table.yview)
 
 
-        # SECTION 6: EXPORT BUTTONS
-        export_frame = tk.Frame(self.root, pady=10)
-        export_frame.pack(fill="x")
-        
+    def _build_llm_tab(self, parent):
+        label = tk.Label(parent, text="LLM Features Coming Soon...")
+        label.pack(pady=20)
+
+
+
+
+    def _build_status_bar(self):
+        status_frame = tk.Frame(self.root, bd=1, relief='sunken')
+        status_frame.pack(side="bottom", fill="x")
+
+        status_label = tk.Label(status_frame, textvariable=self.status, fg="blue", anchor="w")
+        status_label.pack(side="left", padx=10, pady=2)
+
+
+
+
+    def _build_preview(self, parent):
+        # Export Buttons
+        export_frame = tk.Frame(parent, pady=5)
+        export_frame.pack(side="bottom", fill="x")
+
         export_csv_button = tk.Button(export_frame, text="Export CSV", command=lambda: self.controller.export_data("csv"))
         export_csv_button.pack(side="left", padx=20, expand=True)
         
         export_excel_button = tk.Button(export_frame, text="Export Excel", command=lambda: self.controller.export_data("excel"))
         export_excel_button.pack(side="right", padx=20, expand=True)
 
+        # Preview Table
+        scrollbar = ttk.Scrollbar(parent, orient="vertical")
+        scrollbar.pack(side="right", fill="y")
+
+        self.preview_table = ttk.Treeview(parent, columns=("Word", "Count"), show="headings", yscrollcommand=scrollbar.set)
+        self.preview_table.heading("Word", text="Word")
+        self.preview_table.heading("Count", text="Frequency")
+        self.preview_table.column("Word", anchor="w")
+        self.preview_table.column("Count", anchor="center", width=100)
+        self.preview_table.pack(side="left", fill="both", expand=True)
+        
+        scrollbar.config(command=self.preview_table.yview)
+
 
 
     # =================================================================
-    # Methods called by Controller
+    # Functions called by Controller
     # =================================================================
+
+    def set_controller(self, controller):
+        """Connection to the VocabulatorController"""
+        self.controller = controller
+
 
     def update_status(self, message):
         self.status.set(message)
@@ -135,14 +176,14 @@ class VocabulatorUI:
     def update_table(self, dataframe):
         """Clears and repopulates the treeview"""
         
-        for item in self.results_table.get_children():
-            self.results_table.delete(item)
+        for item in self.preview_table.get_children():
+            self.preview_table.delete(item)
             
         if dataframe is None or dataframe.empty:
             return
 
         for _, row in dataframe.head(50).iterrows():
-            self.results_table.insert("", "end", values=(row['word'], row['count']))
+            self.preview_table.insert("", "end", values=(row['word'], row['count']))
 
 
     def show_error(self, title, message):
