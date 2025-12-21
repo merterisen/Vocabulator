@@ -17,14 +17,15 @@ class VocabulatorUI:
         self.root.title(config.WINDOW_TITLE)
         self.root.geometry(config.WINDOW_SIZE)
         
-        # --- State Variables ---
+        # NLP Variables
         self.status = tk.StringVar(value="Ready")
-        self.language = tk.StringVar(value="German")
+        self.language = tk.StringVar()
         self.include_articles = tk.BooleanVar(value=False)
         self.pdf_file_path = tk.StringVar()
         self.known_words_file_path = tk.StringVar()
 
         # LLM Variables
+        self.translate_language = tk.StringVar()
         self.api_key = tk.StringVar()
         
         # Build the UI
@@ -49,6 +50,7 @@ class VocabulatorUI:
         self.notebook.add(self.llm_tab, text='LLM')
         self._build_llm_tab(self.llm_tab)
 
+
         self._build_status_bar() # should be written before _build_preview()
 
         # Preview
@@ -72,7 +74,7 @@ class VocabulatorUI:
         select_pdf_button.pack(side="left")
 
 
-        # CONTAINER for Language and Known Words
+        # Container for Language and Known Words
         container_frame = tk.Frame(parent)
         container_frame.pack(side='top', fill="x", padx=10, pady=5)
         
@@ -110,14 +112,25 @@ class VocabulatorUI:
 
 
     def _build_llm_tab(self, parent):
+        # Container for LLM and Translate Language
+        container_frame = tk.Frame(parent)
+        container_frame.pack(side='top', fill="x", padx=10, pady=5)
+
         # SECTION 1: SELECT LLM MODEL
-        select_llm_frame = tk.LabelFrame(parent, text="1. Select LLM Model", padx=10, pady=10)
-        select_llm_frame.pack(side='top', fill="x", padx=10, pady=5)
+        select_llm_frame = tk.LabelFrame(container_frame, text="1. Select LLM Model", padx=10, pady=10)
+        select_llm_frame.pack(side='left', fill="both", padx=10, pady=5)
 
         self.select_llm_combobox = ttk.Combobox(select_llm_frame, values=list(config.LLM_MODELS.keys()), state="readonly")
         self.select_llm_combobox.pack(fill="x")
 
-        # SECTION 2: ENTER API KEY
+        # SECTION 2: SELECT Translate Language
+        select_translate_language_frame = tk.LabelFrame(container_frame, text="2. Select Translate Language", padx=10, pady=10)
+        select_translate_language_frame.pack(side='right', fill="both", padx=10, pady=5)
+
+        self.select_translate_language_combobox = ttk.Combobox(select_translate_language_frame, textvariable=self.translate_language, values=list(config.LANGUAGES.keys()), state="readonly")
+        self.select_translate_language_combobox.pack(fill="x")
+
+        # SECTION 3: ENTER API KEY
         api_key_frame = tk.LabelFrame(parent, text="2. Enter API Key", padx=10, pady=10)
         api_key_frame.pack(side='top', fill="x", padx=10, pady=5)
 

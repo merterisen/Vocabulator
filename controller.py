@@ -7,7 +7,7 @@ class VocabulatorController:
     """Bridge between ui and core Services."""
     def __init__(self, ui):
         self.ui = ui
-        self.output_df = None
+        self.output_df = None # dataframe is stored here
 
 
     # =================================================================
