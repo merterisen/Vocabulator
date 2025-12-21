@@ -2,6 +2,7 @@ import threading
 from tkinter import filedialog
 from managers.nlp_manager import NLPManager
 from managers.pdf_manager import extract_texts_from_pdf
+from managers.llm_manager import LLMManager
 
 class VocabulatorController:
     """Bridge between ui and core Services."""
@@ -11,7 +12,7 @@ class VocabulatorController:
 
 
     # =================================================================
-    # UI EVENTS
+    # GLOBAL FUNCTIONS
     # =================================================================
 
     def browse_pdf(self):
@@ -33,7 +34,11 @@ class VocabulatorController:
         known_words_file_path = self.ui.known_words_file_path.get()
         
         if not pdf_file_path:
-            self.ui.show_error("Error", "Please select a PDF file first.")
+            self.ui.show_error("Error", "Please select a PDF file.")
+            return
+        
+        if not language:
+            self.ui.show_error("Error", "Please select a language.")
             return
 
         # Lock UI
@@ -49,7 +54,39 @@ class VocabulatorController:
 
 
     def run_llm(self):
-        pass
+        if self.output_df is None or self.output_df.empty:
+            self.ui.show_error("Error", "No words found. Please run NLP first.")
+            return
+
+        language = self.ui.language.get()
+        translate_language = self.ui.translate_language.get()
+
+        llm_model = self.ui.llm_model.get()
+        api_key = self.ui.api_key.get()
+
+        if not llm_model:
+            self.ui.show_error("Error", "Please select a LLM Model.")
+            return
+        
+        if not translate_language:
+            self.ui.show_error("Error", "Please select a translation language.")
+            return
+        
+        if not api_key:
+            self.ui.show_error("Error", "Please enter an API Key.")
+            return
+
+        # Lock UI
+        self.ui.lock_ui()
+
+        # Start Thread
+        thread = threading.Thread(
+            target=self._llm_logic_thread,
+            args=(llm_model, api_key, language, translate_language)
+        )
+        thread.daemon = True
+        thread.start()
+        
 
 
     def export_data(self, format_type):
@@ -75,13 +112,13 @@ class VocabulatorController:
 
 
     # =================================================================
-    # BACKGROUND LOGIC
+    # LOCAL FUNCTIONS
     # =================================================================
     
 
     def _nlp_logic_thread(self, pdf_path, language, known_words_path, include_articles):
         try:
-            self._update_status("Loading AI Model...")
+            self._update_status("Loading NLP Model...")
             
             nlp_manager = NLPManager(language)
             nlp_manager.load_model()
@@ -100,15 +137,26 @@ class VocabulatorController:
 
         except Exception as e:
             self._on_nlp_error(str(e))
+    
+
+    def _llm_logic_thread(self, llm_model, api_key, language, translate_language):
+        try:
+            self._update_status("Connecting to LLM...")
+            llm_manager = LLMManager(llm_model, api_key)
+
+            self._update_status("Creating translates and sentences...")
+            llm_output_df = llm_manager.create_translates(self.output_df, language, translate_language, update_callback=self._update_status)
+
+            self._on_llm_success(llm_output_df)
+
+        except Exception as e:
+            self._on_llm_error(str(e))
 
 
-
-    # =================================================================
-    # THREAD-SAFE UI UPDATES
-    # =================================================================
 
     def _update_status(self, message):
         self.ui.root.after(0, lambda: self.ui.update_status(message))
+
 
 
     def _on_nlp_success(self, output_df):
@@ -121,11 +169,12 @@ class VocabulatorController:
         self.ui.root.after(0, callback)
 
 
+
     def _on_nlp_error(self, error_msg):
         def callback():
-            self.ui.update_status("Error Occurred")
+            self.ui.update_status("Error Occurred During NLP")
             self.ui.unlock_ui()
-            self.ui.show_error("Processing Error", error_msg)
+            self.ui.show_error("Processing Error During NLP", error_msg)
             
         self.ui.root.after(0, callback)
     
@@ -141,11 +190,12 @@ class VocabulatorController:
         self.ui.root.after(0, callback)
 
     
+
     def _on_llm_error(self, error_msg):
         def callback():
-            self.ui.update_status("Error Occurred")
+            self.ui.update_status("Error Occurred During LLM")
             self.ui.unlock_ui()
-            self.ui.show_error("Processing Error", error_msg)
+            self.ui.show_error("Processing Error During LLM", error_msg)
             
         self.ui.root.after(0, callback)
 

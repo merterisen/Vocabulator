@@ -26,6 +26,7 @@ class VocabulatorUI:
 
         # LLM Variables
         self.translate_language = tk.StringVar()
+        self.llm_model = tk.StringVar()
         self.api_key = tk.StringVar()
         
         # Build the UI
@@ -33,6 +34,9 @@ class VocabulatorUI:
 
 
 
+    # =================================================================
+    # LOCAL FUNCTIONS
+    # =================================================================
 
     def _build_ui(self):
 
@@ -57,8 +61,6 @@ class VocabulatorUI:
         self.preview_frame = tk.LabelFrame(self.root, text="Preview (Top 50)", padx=10, pady=10)
         self.preview_frame.pack(side="bottom", fill="both", expand=True, padx=10, pady=10)
         self._build_preview(self.preview_frame)
-
-        
 
 
 
@@ -101,13 +103,12 @@ class VocabulatorUI:
         known_words_button.pack(side="left")
 
 
-        # SECTION 4: RUN BUTTON
-        self.run_button = tk.Button(parent, text="RUN", command=lambda: self.controller.run_nlp(), height=2, bg="#e1e1e1") 
-        self.run_button.pack(side='top', fill="x", padx=20, pady=(10, 5))
+        # SECTION 4: NLP RUN BUTTON
+        self.nlp_run_button = tk.Button(parent, text="RUN", command=lambda: self.controller.run_nlp(), height=2, bg="#e1e1e1") 
+        self.nlp_run_button.pack(side='top', fill="x", padx=20, pady=(10, 5))
 
-        self.progress_bar = ttk.Progressbar(parent, mode='indeterminate')
-        self.progress_bar.pack(fill="x", padx=20, pady=(0, 10))
-
+        self.nlp_progress_bar = ttk.Progressbar(parent, mode='indeterminate')
+        self.nlp_progress_bar.pack(fill="x", padx=20, pady=(0, 10))
 
 
 
@@ -120,7 +121,7 @@ class VocabulatorUI:
         select_llm_frame = tk.LabelFrame(container_frame, text="1. Select LLM Model", padx=10, pady=10)
         select_llm_frame.pack(side='left', fill="both", padx=10, pady=5)
 
-        self.select_llm_combobox = ttk.Combobox(select_llm_frame, values=list(config.LLM_MODELS.keys()), state="readonly")
+        self.select_llm_combobox = ttk.Combobox(select_llm_frame, textvariable=self.llm_model, values=list(config.LLM_MODELS.keys()), state="readonly")
         self.select_llm_combobox.pack(fill="x")
 
         # SECTION 2: SELECT Translate Language
@@ -134,8 +135,12 @@ class VocabulatorUI:
         api_key_frame = tk.LabelFrame(parent, text="2. Enter API Key", padx=10, pady=10)
         api_key_frame.pack(side='top', fill="x", padx=10, pady=5)
 
-        self.api_key_entry = tk.Entry(api_key_frame, state='normal')
+        self.api_key_entry = tk.Entry(api_key_frame, textvariable=self.api_key, state='normal')
         self.api_key_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
+
+        # SECTION 4: RUN BUTTON
+        self.llm_run_button = tk.Button(parent, text="RUN", command=lambda: self.controller.run_llm(), height=2, bg="#e1e1e1") 
+        self.llm_run_button.pack(side='top', fill="x", padx=20, pady=(10, 5))
 
 
 
@@ -146,7 +151,6 @@ class VocabulatorUI:
 
         status_label = tk.Label(status_frame, textvariable=self.status, fg="blue", anchor="w")
         status_label.pack(side="left", padx=10, pady=2)
-
 
 
 
@@ -174,7 +178,7 @@ class VocabulatorUI:
 
 
     # =================================================================
-    # Functions called by Controller
+    # GLOBAL FUNCTIONS (Called by Controller)
     # =================================================================
 
     def set_controller(self, controller):
@@ -229,10 +233,12 @@ class VocabulatorUI:
 
 
     def lock_ui(self):
-        self.run_button.config(state="disabled")
-        self.progress_bar.start(10)
+        self.nlp_run_button.config(state="disabled")
+        self.llm_run_button.config(state="disabled")
+        self.nlp_progress_bar.start(10)
 
 
     def unlock_ui(self):
-        self.progress_bar.stop()
-        self.run_button.config(state="normal")
+        self.nlp_progress_bar.stop()
+        self.nlp_run_button.config(state="normal")
+        self.llm_run_button.config(state="normal")
