@@ -1,7 +1,7 @@
 import threading
 from tkinter import filedialog
-from core.nlp_manager import NLPManager
-from core.pdf_manager import extract_texts_from_pdf
+from managers.nlp_manager import NLPManager
+from managers.pdf_manager import extract_texts_from_pdf
 
 class VocabulatorController:
     """Bridge between ui and core Services."""
