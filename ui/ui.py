@@ -166,14 +166,19 @@ class VocabulatorUI:
         export_excel_button.pack(side="right", padx=20, expand=True)
 
         # Preview Table
-        scrollbar = ttk.Scrollbar(parent, orient="vertical")
-        scrollbar.pack(side="right", fill="y")
+
+        y_scrollbar = ttk.Scrollbar(parent, orient="vertical")
+        y_scrollbar.pack(side="right", fill="y")
+
+        x_scrollbar = ttk.Scrollbar(parent, orient="horizontal")
+        x_scrollbar.pack(side="bottom", fill="x")
 
         # Initializing with default columns, but they will be overwritten dynamically when new columns are added.
-        self.preview_table = ttk.Treeview(parent, columns=("Word", "Count", "Type"), show="headings", yscrollcommand=scrollbar.set)
+        self.preview_table = ttk.Treeview(parent, columns=("Word", "Count", "Type"), show="headings", yscrollcommand=y_scrollbar.set, xscrollcommand=x_scrollbar.set)
         self.preview_table.pack(side="left", fill="both", expand=True)
         
-        scrollbar.config(command=self.preview_table.yview)
+        y_scrollbar.config(command=self.preview_table.yview)
+        x_scrollbar.config(command=self.preview_table.xview)
 
 
 

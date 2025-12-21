@@ -13,7 +13,6 @@ class LLMManager:
 
     def __init__(self, llm_model, api_key):
         self.llm_model = llm_model
-        self.api_key = api_key
         self.client = OpenAI(api_key=api_key)
     
 
@@ -22,7 +21,7 @@ class LLMManager:
     # =================================================================
 
     def create_translates(self, input_df:pd.DataFrame, language:str, translate_language:str, update_callback=None) -> pd.DataFrame:
-        if input_df is None or input_df.empty():
+        if input_df is None or input_df.empty:
             return input_df
 
         words = input_df['word'].tolist()
@@ -90,7 +89,7 @@ class LLMManager:
         
 
         response = self.client.chat.completions.create(
-            model = self.model,
+            model = self.llm_model,
             messages=[
                 {"role": "system", "content": "You are a helpful dictionary assistant that outputs strict JSON."},
                 {"role": "user", "content": prompt}
