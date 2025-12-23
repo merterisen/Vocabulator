@@ -165,7 +165,7 @@ class VocabulatorUI:
         export_excel_button = tk.Button(export_frame, text="Export Excel", command=lambda: self.controller.export_data("excel"))
         export_excel_button.pack(side="right", padx=20, expand=True)
 
-        # Preview Table
+        # Preview DF
 
         y_scrollbar = ttk.Scrollbar(parent, orient="vertical")
         y_scrollbar.pack(side="right", fill="y")
@@ -174,11 +174,11 @@ class VocabulatorUI:
         x_scrollbar.pack(side="bottom", fill="x")
 
         # Initializing with default columns, but they will be overwritten dynamically when new columns are added.
-        self.preview_table = ttk.Treeview(parent, columns=("Word", "Count", "Type"), show="headings", yscrollcommand=y_scrollbar.set, xscrollcommand=x_scrollbar.set)
-        self.preview_table.pack(side="left", fill="both", expand=True)
+        self.preview_df = ttk.Treeview(parent, columns=("Word", "Count", "Type"), show="headings", yscrollcommand=y_scrollbar.set, xscrollcommand=x_scrollbar.set)
+        self.preview_df.pack(side="left", fill="both", expand=True)
         
-        y_scrollbar.config(command=self.preview_table.yview)
-        x_scrollbar.config(command=self.preview_table.xview)
+        y_scrollbar.config(command=self.preview_df.yview)
+        x_scrollbar.config(command=self.preview_df.xview)
 
 
 
@@ -203,26 +203,33 @@ class VocabulatorUI:
         self.known_words_file_path.set(path)
 
 
-    def update_table(self, dataframe):
-        """Clears and repopulates the treeview dynamically based on DataFrame columns."""
+    def update_table(self, output_df):
+        """
+        Clears and repopulates the treeview dynamically based on DataFrame columns.  
+        Preview table is only for showing top 50 row. Output table is stored at controller.py
+        """
         
-        for item in self.preview_table.get_children():
-            self.preview_table.delete(item)
+        for item in self.preview_df.get_children():
+            self.preview_df.delete(item)
             
-        if dataframe is None or dataframe.empty:
+        if output_df is None or output_df.empty:
+            self.preview_frame.config(text="Preview (Top 50)") # Reset text
             return
 
+        total_count = len(output_df)
+        self.preview_frame.config(text=f'Total {total_count} words - Preview (Top 50):')
+
         # Dynamic Column Generation
-        cols = list(dataframe.columns)
-        self.preview_table["columns"] = cols
+        cols = list(output_df.columns)
+        self.preview_df["columns"] = cols
         
         for col in cols:
-            self.preview_table.heading(col, text=col, anchor="w")
-            self.preview_table.column(col, anchor="w")
+            self.preview_df.heading(col, text=col, anchor="w")
+            self.preview_df.column(col, anchor="w")
 
         # Insert head(50) to preview_table
-        for _, row in dataframe.head(50).iterrows():
-            self.preview_table.insert("", "end", values=list(row))
+        for _, row in output_df.head(50).iterrows():
+            self.preview_df.insert("", "end", values=list(row))
 
 
     def show_error(self, title, message):
