@@ -124,14 +124,14 @@ class VocabulatorController:
             nlp_manager.load_model()
 
             self._update_status("Loading known words...")
-            known_set = nlp_manager.load_known_words(known_words_path)
+            known_words = nlp_manager.load_known_words(known_words_path)
 
             self._update_status("Reading PDF...")
             texts = extract_texts_from_pdf(pdf_path)
 
             self._update_status(f"Extracting words from {len(texts)} pages...")
             
-            nlp_output_df = nlp_manager.extract_words(texts, known_set, include_articles=include_articles)
+            nlp_output_df = nlp_manager.extract_words(texts, known_words, include_articles=include_articles)
             
             self._on_nlp_success(nlp_output_df)
 

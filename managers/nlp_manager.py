@@ -18,6 +18,9 @@ class NLPManager:
         self.nlp = None
 
 
+    # =================================================================
+    # GLOBAL FUNCTIONS
+    # =================================================================
 
     def load_model(self):
         """Loads the spacy models."""
@@ -43,7 +46,16 @@ class NLPManager:
             
             # Smart column detection: reads first column only.
             target_col = df.columns[0]
-            return set(df[target_col].astype(str).str.lower().str.strip())
+            known_words = set(df[target_col].astype(str).str.lower().str.strip())
+        
+            lemmatized_known_words = set()
+
+            for doc in self.nlp.pipe(list(known_words), batch_size=100):
+                for token in doc:
+                    if token.is_alpha:
+                        lemmatized_known_words.add(token.lemma_.lower())
+            
+            return lemmatized_known_words
         
         except Exception as e:
             raise Exception(f"Failed to read known words file: {str(e)}")
@@ -61,49 +73,47 @@ class NLPManager:
         if known_words is None:
             known_words = set()
         
-        words_data = {}
+        lemmatized_words_data = {}
 
         language_config = config.LANGUAGES.get(self.language_name, {})
         article_map = language_config.get("articles") or {} 
 
-        # Adding lemmas to words_data
         for doc in self.nlp.pipe(texts, batch_size=20):
             for token in doc:
-                if (token.is_alpha and 
-                    not token.is_stop and 
-                    len(token.lemma_) > 2 and
-                    token.pos_ in config.VALID_POS_TAGS):
-                    
+                if (token.is_alpha and not token.is_stop and len(token.lemma_) > 2 and token.pos_ in config.VALID_POS_TAGS):
                     lemma = token.lemma_.lower()
                     
-                    # words_data configuration
-                    if lemma not in known_words:
-                        if lemma not in words_data:
-                            words_data[lemma] = {
-                                "count": 0,
-                                "gender": None,
-                                "pos": token.pos_
-                            }
+                    # If word is known, skip loop.
+                    if lemma in known_words:
+                        continue
 
-                        words_data[lemma]["count"] += 1
+                    # words_data configuration
+                    if lemma not in lemmatized_words_data:
+                        lemmatized_words_data[lemma] = {
+                            "count": 0,
+                            "gender": None,
+                            "pos": token.pos_
+                        }
+
+                    lemmatized_words_data[lemma]["count"] += 1
                     
                     # Article info
-                    if article_map and token.pos_ == "NOUN" and words_data[lemma]["gender"] is None:
+                    if article_map and token.pos_ == "NOUN" and lemmatized_words_data[lemma]["gender"] is None:
                             genders = token.morph.get("Gender")
                             if genders:
-                                words_data[lemma]["gender"] = genders[0]
+                                lemmatized_words_data[lemma]["gender"] = genders[0]
                     
 
         # Output Data
         output_data = []
-        for key, values in words_data.items():
+        for key, values in lemmatized_words_data.items():
             # Adding Articles
             if include_articles and values["gender"]:
                 article = article_map.get(values["gender"])
                 if article:
                     key = f"{article} {key}"
             
-            # Satır verisi oluşturuluyor
+
             row = {
                 "word": key,
                 "count": values["count"],
@@ -118,3 +128,8 @@ class NLPManager:
             output_df = output_df.sort_values(by='count', ascending=False)
             
         return output_df
+
+
+    # =================================================================
+    # LOCAL FUNCTIONS
+    # =================================================================
