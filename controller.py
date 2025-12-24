@@ -3,6 +3,8 @@ from tkinter import filedialog
 from managers.nlp_manager import NLPManager
 from managers.pdf_manager import extract_texts_from_pdf
 from managers.llm_manager import LLMManager
+import config
+import math
 
 class VocabulatorController:
     """Bridge between ui and core Services."""
@@ -75,6 +77,40 @@ class VocabulatorController:
         if not api_key:
             self.ui.show_error("Error", "Please enter an API Key.")
             return
+        
+        llm_model_config = config.LLM_MODELS.get(llm_model)
+
+        if llm_model_config:
+            total_words = len(self.output_df)
+            batch_size = config.LLM_BATCH_SIZE
+            num_batches = math.ceil(total_words / batch_size)
+
+            # Heuristic Estimation
+            fixed_prompt_overhead = 250
+            per_word_input_tokens = 5
+
+            input_tokens = (num_batches * fixed_prompt_overhead) + (total_words * per_word_input_tokens)
+            output_tokens = total_words * 80 # ~80 tokens per word (JSON Structure + Sentence + Translation)
+
+            input_price_per_1m = llm_model_config.get("input_price", 0)
+            output_price_per_1m = llm_model_config.get("output_price", 0)
+
+            estimated_cost = (input_tokens / 1_000_000 * input_price_per_1m) + (output_tokens / 1_000_000 * output_price_per_1m)
+
+            if estimated_cost < 0.01:
+                estimated_cost_text = "< $0.01"
+            else:
+                estimated_cost_text = f"~${estimated_cost:.2f}"
+            
+            llm_confirmation_message = (
+                f"You are about to process ~{input_tokens + output_tokens} tokens using {llm_model}.\n\n"
+                f"Estimated Cost: {estimated_cost_text} USD\n"
+                "(Based on token usage estimates)\n\n"
+                "Do you want to proceed?"
+            )
+
+            if not self.ui.show_confirmation("Confirm Cost", llm_confirmation_message):
+                return
 
         # Lock UI
         self.ui.lock_ui()
@@ -86,7 +122,29 @@ class VocabulatorController:
         )
         thread.daemon = True
         thread.start()
+    
+
+    def remove_threshold(self):
+        if self.output_df is None:
+            self.ui.show_error("Warning", "No data to filter.")
+            return
         
+        try:
+            threshold_str = self.ui.count_threshold.get()
+            threshold = int(threshold_str)
+        except ValueError:
+            self.ui.show_error("Error", "Please enter a number.")
+            return
+        
+        if self.ui.show_confirmation("Confirm Threshold", f"This will remove words with count less equal than {threshold} ?"):
+             original_count = len(self.output_df)
+
+             self.output_df = self.output_df[self.output_df['count'] > threshold]
+
+             new_count = len(self.output_df)
+             
+             self.ui.update_preview(self.output_df)
+             self.ui.show_info("Success", f"Removed {original_count - new_count} words. Remaining: {new_count}") 
 
 
     def export_data(self, format_type):
@@ -162,7 +220,7 @@ class VocabulatorController:
     def _on_nlp_success(self, output_df):
         def callback():
             self.output_df = output_df
-            self.ui.update_table(output_df)
+            self.ui.update_preview(output_df)
             self.ui.update_status("NLP Complete!")
             self.ui.unlock_ui()
         
@@ -183,7 +241,7 @@ class VocabulatorController:
     def _on_llm_success(self, output_df):
         def callback():
             self.output_df = output_df
-            self.ui.update_table(output_df)
+            self.ui.update_preview(output_df)
             self.ui.update_status("LLM Complete!")
             self.ui.unlock_ui()
         

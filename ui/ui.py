@@ -24,6 +24,9 @@ class VocabulatorUI:
         self.pdf_file_path = tk.StringVar()
         self.known_words_file_path = tk.StringVar()
 
+        # Other UI Variables
+        self.count_threshold = tk.StringVar()
+
         # LLM Variables
         self.translate_language = tk.StringVar()
         self.llm_model = tk.StringVar()
@@ -165,16 +168,27 @@ class VocabulatorUI:
         export_excel_button = tk.Button(export_frame, text="Export Excel", command=lambda: self.controller.export_data("excel"))
         export_excel_button.pack(side="right", padx=20, expand=True)
 
-        # Preview DF
+        # Count Threshold Frame
+        count_threshold_frame = tk.Frame(parent, pady=5)
+        count_threshold_frame.pack(side="bottom", fill="x")
 
+        count_threshold_entry = tk.Entry(count_threshold_frame, textvariable=self.count_threshold, width=2)
+        count_threshold_entry.pack(side="right", padx=0)
+
+        count_threshold_label = tk.Label(count_threshold_frame, text="<=")
+        count_threshold_label.pack(side="right", padx=0)
+        
+        count_threshold_button = tk.Button(count_threshold_frame, text="Set Threshold", command=lambda: self.controller.remove_threshold())
+        count_threshold_button.pack(side="right", padx=0)
+
+        # Preview DF
         y_scrollbar = ttk.Scrollbar(parent, orient="vertical")
         y_scrollbar.pack(side="right", fill="y")
 
         x_scrollbar = ttk.Scrollbar(parent, orient="horizontal")
         x_scrollbar.pack(side="bottom", fill="x")
 
-        # Initializing with default columns, but they will be overwritten dynamically when new columns are added.
-        self.preview_df = ttk.Treeview(parent, columns=("Word", "Count", "Type"), show="headings", yscrollcommand=y_scrollbar.set, xscrollcommand=x_scrollbar.set)
+        self.preview_df = ttk.Treeview(parent, show="headings", yscrollcommand=y_scrollbar.set, xscrollcommand=x_scrollbar.set)
         self.preview_df.pack(side="left", fill="both", expand=True)
         
         y_scrollbar.config(command=self.preview_df.yview)
@@ -203,7 +217,7 @@ class VocabulatorUI:
         self.known_words_file_path.set(path)
 
 
-    def update_table(self, output_df):
+    def update_preview(self, output_df):
         """
         Clears and repopulates the treeview dynamically based on DataFrame columns.  
         Preview table is only for showing top 50 row. Output table is stored at controller.py
@@ -242,6 +256,9 @@ class VocabulatorUI:
 
     def show_warning(self, title, message):
         messagebox.showwarning(title, message)
+    
+    def show_confirmation(self, title, message):
+        return messagebox.askyesno(title, message)
 
 
     def lock_ui(self):
