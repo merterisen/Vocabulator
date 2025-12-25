@@ -110,9 +110,6 @@ class VocabulatorUI:
         self.nlp_run_button = tk.Button(parent, text="RUN", command=lambda: self.controller.run_nlp(), height=2, bg="#e1e1e1") 
         self.nlp_run_button.pack(side='top', fill="x", padx=20, pady=(10, 5))
 
-        self.nlp_progress_bar = ttk.Progressbar(parent, mode='indeterminate')
-        self.nlp_progress_bar.pack(fill="x", padx=20, pady=(0, 10))
-
 
 
     def _build_llm_tab(self, parent):
@@ -158,6 +155,10 @@ class VocabulatorUI:
 
 
     def _build_preview(self, parent):
+        # Progress Bar
+        self.progress_bar = ttk.Progressbar(parent, mode='indeterminate')
+        self.progress_bar.pack(fill="x", padx=20, pady=(0, 10))
+
         # Export Buttons
         export_frame = tk.Frame(parent, pady=5)
         export_frame.pack(side="bottom", fill="x")
@@ -264,10 +265,10 @@ class VocabulatorUI:
     def lock_ui(self):
         self.nlp_run_button.config(state="disabled")
         self.llm_run_button.config(state="disabled")
-        self.nlp_progress_bar.start(10)
+        self.progress_bar.start(10)
 
 
     def unlock_ui(self):
-        self.nlp_progress_bar.stop()
+        self.progress_bar.stop()
         self.nlp_run_button.config(state="normal")
         self.llm_run_button.config(state="normal")
