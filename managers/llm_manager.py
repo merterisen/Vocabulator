@@ -35,15 +35,12 @@ class LLMManager:
             if update_callback:
                 update_callback(f"Processing batch {i + 1}/{total_batches}...")
         
-            try:
-                client_output = self._send_to_llm(words_to_send_llm, language, translate_language)
-                for item in client_output:
-                    word_key = item.get("word", "").lower().strip()
-                    if word_key:
-                        output_data[word_key] = item
+            client_output = self._send_to_llm(words_to_send_llm, language, translate_language)
 
-            except Exception as e:
-                print(f"Error in batch {i}: {e}")
+            for item in client_output:
+                word_key = item.get("word", "").lower().strip()
+                if word_key:
+                    output_data[word_key] = item
         
 
         # Using apply to safely map, if a word failed -> eave fields empty
@@ -94,7 +91,6 @@ class LLMManager:
                 {"role": "system", "content": "You are a helpful dictionary assistant that outputs strict JSON."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.7
         )
 
         content = response.choices[0].message.content.strip()

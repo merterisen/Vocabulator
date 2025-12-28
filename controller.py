@@ -1,4 +1,5 @@
 import threading
+import traceback
 from tkinter import filedialog
 from managers.nlp_manager import NLPManager
 from managers.pdf_manager import extract_texts_from_pdf
@@ -45,14 +46,9 @@ class VocabulatorController:
 
         # Lock UI
         self.ui.lock_ui()
-        
+
         # Start Thread
-        thread = threading.Thread(
-            target=self._nlp_logic_thread, 
-            args=(pdf_file_path, language, known_words_file_path, include_articles)
-        )
-        thread.daemon = True
-        thread.start()
+        self._run_safe_thread(self._nlp_logic, (pdf_file_path, language, known_words_file_path, include_articles))
 
 
     def run_llm(self):
@@ -116,12 +112,8 @@ class VocabulatorController:
         self.ui.lock_ui()
 
         # Start Thread
-        thread = threading.Thread(
-            target=self._llm_logic_thread,
-            args=(llm_model, api_key, language, translate_language)
-        )
-        thread.daemon = True
-        thread.start()
+        self._run_safe_thread(self._llm_logic, (llm_model, api_key, language, translate_language))
+        
     
 
     def remove_threshold(self):
@@ -129,12 +121,8 @@ class VocabulatorController:
             self.ui.show_error("Warning", "No data to filter.")
             return
         
-        try:
-            threshold_str = self.ui.count_threshold.get()
-            threshold = int(threshold_str)
-        except ValueError:
-            self.ui.show_error("Error", "Please enter a number.")
-            return
+        threshold_str = self.ui.count_threshold.get()
+        threshold = int(threshold_str)
         
         if self.ui.show_confirmation("Confirm Threshold", f"This will remove words with count less equal than {threshold} ?"):
              original_count = len(self.output_df)
@@ -152,63 +140,63 @@ class VocabulatorController:
             self.ui.show_warning("Warning", "No data to export.")
             return
             
-        try:
-            if format_type == "csv":
-                f = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV", "*.csv")])
-                if f: 
-                    self.output_df.to_csv(f, index=False)
-                    self.ui.show_info("Success", "Saved to CSV")
-            else: # excel
-                f = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel", "*.xlsx")])
-                if f: 
-                    self.output_df.to_excel(f, index=False)
-                    self.ui.show_info("Success", "Saved to Excel")
-            
-        except Exception as e:
-            self.ui.show_error("Export Error", str(e))
+        if format_type == "csv":
+            f = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV", "*.csv")])
+            if f: 
+                self.output_df.to_csv(f, index=False)
+                self.ui.show_info("Success", "Saved to CSV")
+        else: # excel
+            f = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel", "*.xlsx")])
+            if f: 
+                self.output_df.to_excel(f, index=False)
+                self.ui.show_info("Success", "Saved to Excel")
 
 
 
     # =================================================================
     # LOCAL FUNCTIONS
     # =================================================================
+
+    def _nlp_logic(self, pdf_path, language, known_words_path, include_articles):
+        self._update_status("Loading NLP Model...")
+        
+        nlp_manager = NLPManager(language)
+        nlp_manager.load_model()
+
+        self._update_status("Loading known words...")
+        known_words = nlp_manager.load_known_words(known_words_path)
+
+        self._update_status("Reading PDF...")
+        texts = extract_texts_from_pdf(pdf_path)
+
+        self._update_status(f"Extracting words from {len(texts)} pages...")
+        
+        nlp_output_df = nlp_manager.extract_words(texts, known_words, include_articles=include_articles)
+
+        def on_nlp_success():
+            self.output_df = nlp_output_df
+            self.ui.update_preview(nlp_output_df)
+            self.ui.update_status("NLP Complete!")
+            self.ui.unlock_ui()
+        
+        self.ui.root.after(0, on_nlp_success)
     
 
-    def _nlp_logic_thread(self, pdf_path, language, known_words_path, include_articles):
-        try:
-            self._update_status("Loading NLP Model...")
-            
-            nlp_manager = NLPManager(language)
-            nlp_manager.load_model()
 
-            self._update_status("Loading known words...")
-            known_words = nlp_manager.load_known_words(known_words_path)
+    def _llm_logic(self, llm_model, api_key, language, translate_language):
+        self._update_status("Connecting to LLM...")
+        llm_manager = LLMManager(llm_model, api_key)
 
-            self._update_status("Reading PDF...")
-            texts = extract_texts_from_pdf(pdf_path)
+        self._update_status("Creating translates and sentences...")
+        llm_output_df = llm_manager.create_translates(self.output_df, language, translate_language, update_callback=self._update_status)
 
-            self._update_status(f"Extracting words from {len(texts)} pages...")
-            
-            nlp_output_df = nlp_manager.extract_words(texts, known_words, include_articles=include_articles)
-            
-            self._on_nlp_success(nlp_output_df)
-
-        except Exception as e:
-            self._on_nlp_error(str(e))
-    
-
-    def _llm_logic_thread(self, llm_model, api_key, language, translate_language):
-        try:
-            self._update_status("Connecting to LLM...")
-            llm_manager = LLMManager(llm_model, api_key)
-
-            self._update_status("Creating translates and sentences...")
-            llm_output_df = llm_manager.create_translates(self.output_df, language, translate_language, update_callback=self._update_status)
-
-            self._on_llm_success(llm_output_df)
-
-        except Exception as e:
-            self._on_llm_error(str(e))
+        def on_llm_success():
+            self.output_df = llm_output_df
+            self.ui.update_preview(llm_output_df)
+            self.ui.update_status("LLM Complete!")
+            self.ui.unlock_ui()
+        
+        self.ui.root.after(0, on_llm_success)
 
 
 
@@ -217,45 +205,32 @@ class VocabulatorController:
 
 
 
-    def _on_nlp_success(self, output_df):
-        def callback():
-            self.output_df = output_df
-            self.ui.update_preview(output_df)
-            self.ui.update_status("NLP Complete!")
-            self.ui.unlock_ui()
-        
-        self.ui.root.after(0, callback)
+    def _run_safe_thread(self, target_func, args=()):
+        """
+        Generic helper to run logic in a thread with automatic error handling.
+        This removes the need for try/except blocks inside logic functions.
+        """
+        def wrapper():
+            try:
+                target_func(*args)
+                
+            except Exception as e:
+                # Print Exception to terminal
+                print(f"EXCEPTION: {target_func.__name__}")
+                traceback.print_exc()
 
+                # Print Exception to UI
+                error_msg = str(e)
+                def on_error():
+                    self.ui.update_status("Task Failed")
+                    self.ui.unlock_ui()
+                    self.ui.show_error("Process Error", error_msg)
+                self.ui.root.after(0, on_error)
 
+        thread = threading.Thread(target=wrapper)
+        thread.daemon = True
+        thread.start()
 
-    def _on_nlp_error(self, error_msg):
-        def callback():
-            self.ui.update_status("Error Occurred During NLP")
-            self.ui.unlock_ui()
-            self.ui.show_error("Processing Error During NLP", error_msg)
-            
-        self.ui.root.after(0, callback)
-    
-
-
-    def _on_llm_success(self, output_df):
-        def callback():
-            self.output_df = output_df
-            self.ui.update_preview(output_df)
-            self.ui.update_status("LLM Complete!")
-            self.ui.unlock_ui()
-        
-        self.ui.root.after(0, callback)
-
-    
-
-    def _on_llm_error(self, error_msg):
-        def callback():
-            self.ui.update_status("Error Occurred During LLM")
-            self.ui.unlock_ui()
-            self.ui.show_error("Processing Error During LLM", error_msg)
-            
-        self.ui.root.after(0, callback)
 
     
     

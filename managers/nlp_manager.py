@@ -38,27 +38,23 @@ class NLPManager:
         if not filepath:
             return set()
             
-        try:
-            if filepath.endswith(('.xls', '.xlsx')):
-                df = pd.read_excel(filepath)
-            else:
-                df = pd.read_csv(filepath)
-            
-            # Smart column detection: reads first column only.
-            target_col = df.columns[0]
-            known_words = set(df[target_col].astype(str).str.lower().str.strip())
+        if filepath.endswith(('.xls', '.xlsx')):
+            df = pd.read_excel(filepath)
+        else:
+            df = pd.read_csv(filepath)
         
-            lemmatized_known_words = set()
+        # Smart column detection: reads first column only.
+        target_col = df.columns[0]
+        known_words = set(df[target_col].astype(str).str.lower().str.strip())
+    
+        lemmatized_known_words = set()
 
-            for doc in self.nlp.pipe(list(known_words), batch_size=100):
-                for token in doc:
-                    if token.is_alpha:
-                        lemmatized_known_words.add(token.lemma_.lower())
-            
-            return lemmatized_known_words
+        for doc in self.nlp.pipe(list(known_words), batch_size=100):
+            for token in doc:
+                if token.is_alpha:
+                    lemmatized_known_words.add(token.lemma_.lower())
         
-        except Exception as e:
-            raise Exception(f"Failed to read known words file: {str(e)}")
+        return lemmatized_known_words
 
 
 
