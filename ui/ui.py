@@ -124,18 +124,18 @@ class VocabulatorUI:
         self.select_llm_combobox = ttk.Combobox(select_llm_frame, textvariable=self.llm_model, values=list(config.LLM_MODELS.keys()), state="readonly")
         self.select_llm_combobox.pack(fill="x")
 
-        # SECTION 2: SELECT Translate Language
-        select_translate_language_frame = tk.LabelFrame(container_frame, text="2. Select Translate Language", padx=10, pady=10)
+        # SECTION 2: ENTER Translate Language
+        select_translate_language_frame = tk.LabelFrame(container_frame, text="2. Enter Translate Language", padx=10, pady=10)
         select_translate_language_frame.pack(side='right', fill="both", padx=10, pady=5)
 
-        self.select_translate_language_combobox = ttk.Combobox(select_translate_language_frame, textvariable=self.translate_language, values=list(config.LANGUAGES.keys()), state="readonly")
-        self.select_translate_language_combobox.pack(fill="x")
+        self.select_translate_language_entry = ttk.Entry(select_translate_language_frame, textvariable=self.translate_language, state="normal")
+        self.select_translate_language_entry.pack(fill="x")
 
         # SECTION 3: ENTER API KEY
         api_key_frame = tk.LabelFrame(parent, text="2. Enter API Key", padx=10, pady=10)
         api_key_frame.pack(side='top', fill="x", padx=10, pady=5)
 
-        self.api_key_entry = tk.Entry(api_key_frame, textvariable=self.api_key, state='normal')
+        self.api_key_entry = tk.Entry(api_key_frame, textvariable=self.api_key, state='normal', show='*')
         self.api_key_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
 
         # SECTION 4: RUN BUTTON
